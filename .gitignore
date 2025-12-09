@@ -2,6 +2,14 @@
 .venv/
 venv/
 
+*.jpg
+*.stl
+*.png
+*.json
+*.xml
+.gitkeep
+.LICENSE
+
 # uv files
 uv.lock
 
