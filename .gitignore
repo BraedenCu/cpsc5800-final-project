@@ -1,4 +1,60 @@
-models/*
-.venv/*
-.claude/*
+# Virtual environment
+.venv/
+venv/
+
+# uv files
 uv.lock
+
+# Claude files
+.claude/
+
+# Violation outputs
+violations/
+violations_sim/
+violations_sim_full/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Simulation outputs
+*.mp4
+*.avi
+*.gif
+
+# Temporary files
+*.log
+*.tmp
