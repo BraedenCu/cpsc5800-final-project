@@ -1,0 +1,4 @@
+models/*
+.venv/*
+.claude/*
+uv.lock

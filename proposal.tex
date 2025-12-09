@@ -1,0 +1,61 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath}
+
+\title{CPSC5800 Project Proposal: An Overengineered Framework for Capturing Speeding Offenders}
+\author{Braeden Cullen}
+\date{November 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Problem Statement}
+
+The interaction between Hillhouse and Grove Avenue is famously dangerous. Drivers paying no attention while flying down the stretch at breakneck speeds pose a major threat to Yale affiliates crossing at one of the most frequented unmarked stretches on Yale grounds. We propose a framework for capturing speeding drivers and grabbing a snapshot of relevant information for tracking down said speeding offenders. 
+
+\section{General Approach \& Data}
+
+We begin by outlining the hardware specifications of the street monitor. We leverage a UFACTORY Lite6 arm with an Intel RealSense mounted on the end effector. The Intel RealSense is noteworthy due to its capability of producing frames that contain traditional RGB pixel values with an added depth dimension. This is crucial, as it vastly improves our ability to compute accurate car speeds using only successive frame data. The device produces a high fidelity point cloud which gives us more insight into trajectories through successive frames without having to perform repeated conversions between the RGB frame and the RGB+depth coordinate frame. The project will be completed in stages, with metrics of success defined for the first stage in the proceeding. If time allows, progression will be made to build out a more involved solution that fuses both computer vision techniques with optimization and path planning.  
+We start by initializing the RealSense camera and performing calibration with respect to the UFACTORY Lite6 arm coordinate frame. We establish the extrinsic transformation between the robot base and the camera frame, ensuring that it remains consistent during operation. The Lite6 provides six degrees of freedom allowing for precise orientation adjustments to ensure that the camera's optical axis remains tangential to the vehicle motion along the road. Given the joint angles, we will need to determine the position and orientation (pose) of the robot's end effector to derive the coordinates of the RealSense camera relative to the fixed arm base. We will leverage forward kinematics to do so. Forward kinematics relies on the modified Denavit-Hartenberg (DH) convention to describe the geometry of each link and joint. Every joint $i$ is described by four DH parameters $\theta_i$ (joint angle), $d_i$ (offset along prev z to the common normal), $a_i$ (length of common normal), $\alpha_i$ (angle about the common normal, from prev z axis to current z axis). The associated homogeneous transformation matrix $T_i$ for each joint is as follows: 
+\[
+T_i = \begin{bmatrix}
+    \cos(\theta_i) & -\sin(\theta_i)\cos(\alpha_i) & \sin(\theta_i)\sin(\alpha_i) & \alpha_i\cos(\theta_i) \\
+    \sin(\theta_i) & \cos(\theta_i)\cos(\alpha_i) & -\cos(\theta_i)\sin(\alpha_i) & \alpha_i \sin(\theta_i) \\
+    0 & \sin(\alpha_i) & \cos(\alpha_i) & d_i \\
+    0 & 0 & 0 & 1
+\end{bmatrix}
+\]
+
+
+The end effector pose $T_{0->6}$ in the robot base coordinate frame is computed by multiplying the six individual link transitions in order:
+$$
+T_{0->6} = T_1*T_2*T_3*T_4*T_5*T_6
+$$
+This results in a 4x4 matrix representing the rotational and translation relationship of the camera frame to the world frame. The translation components yield the RealSense position in 3D space while the 3x3 rotation submatrix encodes orientation. We read in the current joint angles from the UFACTORY Lite6 controller in each frame, then feed these into the forward kinematic model granting us the global pose of the RealSense. We then can precisely express the point cloud data produced by the camera in a fixed, world coordinate frame derived from the robot base frame. Each 3D point $\mathbf{p}^\text{cam} = [x\ y\ z\ 1]^T$ captured by the RealSense is originally represented in the local coordinate frame of the camera itself. To map these points onto a street aligned global frame, we apply the homogeneous transformation $T_{0 \rightarrow 6}$ as computed previously: 
+$$
+p^{\textbf{world}} = T_{0->6}*p^{\textbf{cam}}
+$$
+$T_{0 \rightarrow 6}$ encodes both the rotation and translation from the camera to the arm base (world) coordinate system, as determined by the forward kinematics given the current joint readings. Applying this transformation to every point in the RealSense point cloud reconstructs the observed scene grounded in the unchanging reference frame of the robot base. This procedure is repeated for every frame, ensuring that all object detections, tracked positions, and computed trajectories are consistent in world coordinates, regardless of how the robot arm may move or reorient the sensor over time. We configure the frame acquisition pipeline to sample frames at a constant rate and log the RGB and depth data. Depth data is filtered using a temporal and spatial filter to reduce reconstruction noise. For every frame pair the velocity is computed using 3D point correspondence and temporal displacement: $$ v = || P_{t+1} - P_t || / \Delta t $$
+Where $P_t$ is the centroid position of the detected car at time t derived from the segmented point cloud produced by the RealSense. Vehicles are segmented and matched across frames using a feature matching algorithm decided on during the experimentation phase. BRISK and SIFT are both suitable candidates, with BRISK likely preferred due to its increased speed at the expense of approximation. A Kalman filter tracks each vehicle's state (position + velocity) between frames, compensating for measurement noise and occlusions. Once the estimated velocity exceeds the speed limit, the system automatically triggers the information capture phase to grab relevant vehicle identification details. Additionally, we save metadata including timestamp, estimated velocity, and frame coordinates. To summarize briefly, for each frame we perform the following tentative procedure:
+\begin{enumerate}
+    \item Segment vehicles in the global point cloud, performing forward kinematics to convert coordinates from the RealSense frame into the global frame.
+    \item Extract features for each vehicle using BRISK.
+    \item Match features and centroids to vehicles in previous frames using spatial proximity and descriptor similarity.
+    \item Update tracked states using Kalman filtering.
+    \item Capture relevant vehicle information and metadata if vehicle speed exceeds a threshold.
+\end{enumerate}
+
+\section{Measure of Success }
+Over the course of ten minutes track the number of speeding drivers and capture a snapshot of the vehicles of aforementioned drivers. We will conduct a ten minute capture session at Hillhouse and Grove intersection, recording both the total number of vehicles passing and the number exceeding the threshold. We also save relevant snapshots and metadata of offending vehicles. 
+
+\section{Milestones \& Deliverables}
+\begin{itemize}
+    \item Accurately segment unobstructed vehicles passing by the stationed RealSense.
+    \item Determine the speeds of vehicles using successive snapshots.
+    \item Handle capturing metadata about system status and offender information once speeding is detected.
+    \item Count the number of offending vehicles within a ten minute period of tracking.
+\end{itemize}
+
+
+\end{document}
